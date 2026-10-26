@@ -1,0 +1,33 @@
+zabbix_export:
+  version: '7.4'
+  template_groups:
+  - uuid: bf8a3a382f6d48fe9c02d41916f1a02e
+    name: Templates/Network devices
+  templates:
+  - uuid: 950ee56cfc4041159378c6677f980cad
+    template: Template Intelbras S3000 MIB 9.7.200
+    name: Template Intelbras S3000 MIB 9.7.200
+    description: 'Complemento para switches Intelbras S3000 com firmware 9.7.200 (ex.: S3028G-B). Este firmware só expõe o uso de memória via SNMP (1.3.6.1.4.1.26138.3.20.1.1.1); CPU, temperatura e fontes não aparecem.'
+    groups:
+    - name: Templates/Network devices
+    items:
+    - uuid: 44ffed00d1fc43cf825eb2b0d85ece0f
+      name: 'Intelbras: Uso de memória'
+      type: SNMP_AGENT
+      snmp_oid: 1.3.6.1.4.1.26138.3.20.1.1.1.9.0
+      key: intelbras.mem
+      units: '%'
+      triggers:
+      - uuid: d63ddb56f8a14940a95e00fde8afba2d
+        expression: avg(/Template Intelbras S3000 MIB 9.7.200/intelbras.mem,10m)>{$INTELBRAS.MEM.MAX}
+        name: 'Switch: memória alta (> {$INTELBRAS.MEM.MAX}%)'
+        priority: WARNING
+    tags:
+    - tag: fabricante
+      value: intelbras
+    - tag: tecnologia
+      value: switch
+    macros:
+    - macro: '{$INTELBRAS.MEM.MAX}'
+      value: '90'
+      description: Uso de memória máximo (%)

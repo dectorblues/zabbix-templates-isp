@@ -1,0 +1,29 @@
+zabbix_export:
+  version: '7.4'
+  template_groups:
+  - uuid: bf8a3a382f6d48fe9c02d41916f1a02e
+    name: Templates/Network devices
+  templates:
+  - uuid: 7bc8c20515194b1b8550a2bf50716524
+    template: Template Intelbras S3000 by SNMP
+    name: Template Intelbras S3000 by SNMP
+    description: Switches Intelbras S3028G-B / S3054G-B. Herda o template oficial 'Network Generic Device by SNMP' (sistema, uptime e interfaces) e filtra só as portas físicas. Para CPU, memória, temperatura e fontes, vincule também o complemento do seu firmware (9.7.200 ou 9.7.400).
+    templates:
+    - name: Network Generic Device by SNMP
+    groups:
+    - name: Templates/Network devices
+    tags:
+    - tag: fabricante
+      value: intelbras
+    - tag: tecnologia
+      value: switch
+    macros:
+    - macro: '{$NET.IF.IFALIAS.MATCHES}'
+      value: .+
+      description: Descobre só interfaces com descrição preenchida
+    - macro: '{$NET.IF.IFNAME.MATCHES}'
+      value: ^(gigabitethernet|ten-?gigabitethernet)
+      description: Descobre só as portas físicas (gigabit e 10 gigabit)
+    - macro: '{$SNMP_COMMUNITY}'
+      type: SECRET_TEXT
+      description: Defina no host (texto secreto)

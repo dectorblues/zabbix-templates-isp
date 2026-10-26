@@ -1,0 +1,379 @@
+zabbix_export:
+  version: '7.4'
+  template_groups:
+  - uuid: bf8a3a382f6d48fe9c02d41916f1a02e
+    name: Templates/Network devices
+  templates:
+  - uuid: b691f5b2d3214b86936a65a39df324ff
+    template: TP-Link DS-P7001-16 by SNMP
+    name: TP-Link DS-P7001-16 by SNMP
+    description: OLT GPON TP-Link / DeltaStream DS-P7001-16 via SNMP (MIB TP-Link 1.3.6.1.4.1.11863.6.100). Descobre as PONs e as ONUs (índice 1.PON.ONU) e coleta estado online, potência RX/TX, temperatura, tensão, corrente de bias, distância, modelo, serial e firmware de cada ONU. Validado em equipamento real com SNMPv3.
+    groups:
+    - name: Templates/Network devices
+    items:
+    - uuid: 4eb5751f2d4b4e7e9904526585c2317f
+      name: 'Sistema: descrição'
+      type: SNMP_AGENT
+      snmp_oid: 1.3.6.1.2.1.1.1.0
+      key: tplink.sys.descr
+      delay: 1h
+      history: 7d
+      value_type: TEXT
+    - uuid: 034ecbcd4c96410e8fc27f29984c9e93
+      name: 'Sistema: nome'
+      type: SNMP_AGENT
+      snmp_oid: 1.3.6.1.2.1.1.5.0
+      key: tplink.sys.name
+      delay: 1h
+      history: 7d
+      value_type: CHAR
+    - uuid: 441b5ac1ae1e46979965d84159c71630
+      name: 'Sistema: uptime SNMP'
+      type: SNMP_AGENT
+      snmp_oid: 1.3.6.1.2.1.1.3.0
+      key: tplink.sys.uptime
+      history: 7d
+      trends: 90d
+      units: uptime
+      preprocessing:
+      - type: MULTIPLIER
+        parameters:
+        - '0.01'
+      triggers:
+      - uuid: eddfe5f7a7704cf48f89ff72a10bc626
+        expression: nodata(/TP-Link DS-P7001-16 by SNMP/tplink.sys.uptime,10m)=1
+        name: 'OLT: sem resposta SNMP por 10 minutos'
+        priority: HIGH
+    discovery_rules:
+    - uuid: af213e223e0248cb9480ce43d0efface
+      name: Descoberta das ONUs
+      type: SNMP_AGENT
+      snmp_oid: discovery[{#ONU},1.3.6.1.4.1.11863.6.100.1.7.2.1.4,{#PON},1.3.6.1.4.1.11863.6.100.1.7.2.1.3,{#DESCRIPTION},1.3.6.1.4.1.11863.6.100.1.7.2.1.5,{#SERIAL},1.3.6.1.4.1.11863.6.100.1.7.2.1.6]
+      key: tplink.onu.discovery
+      delay: 1h
+      lifetime: 1h
+      description: 'Descobre as ONUs provisionadas. Índice 1.PON.ONU (ex.: 1.1.1). Alguns firmwares mantêm ONUs offline na tabela.'
+      item_prototypes:
+      - uuid: 6012bc3598c042f6bf9165c2ec82317a
+        name: 'ONU {#PON}/{#ONU} [{#SERIAL}]: Corrente de bias'
+        type: SNMP_AGENT
+        snmp_oid: 1.3.6.1.4.1.11863.6.100.1.7.2.1.27.{#SNMPINDEX}
+        key: tplink.onu.bias[{#SNMPINDEX}]
+        delay: 5m
+        history: 7d
+        value_type: FLOAT
+        trends: 90d
+        units: mA
+        description: Corrente de bias da ONU em mA.
+      - uuid: 23bf89ab7dd44dafbb6677828125f466
+        name: 'ONU {#PON}/{#ONU} [{#SERIAL}]: Descrição'
+        type: SNMP_AGENT
+        snmp_oid: 1.3.6.1.4.1.11863.6.100.1.7.2.1.5.{#SNMPINDEX}
+        key: tplink.onu.description[{#SNMPINDEX}]
+        delay: 5m
+        history: 7d
+        value_type: CHAR
+        description: Descrição cadastrada na ONU (normalmente o local ou o cliente).
+      - uuid: 28fcf7120a934810b3e80595295bffb3
+        name: 'ONU {#PON}/{#ONU} [{#SERIAL}]: Distância'
+        type: SNMP_AGENT
+        snmp_oid: 1.3.6.1.4.1.11863.6.100.1.7.2.1.17.{#SNMPINDEX}
+        key: tplink.onu.distance[{#SNMPINDEX}]
+        delay: 5m
+        history: 7d
+        trends: 90d
+        units: m
+        description: Valor corresponde a distancia da ONU em metros.
+      - uuid: b223df1c181c4779bfc139438bb2234f
+        name: 'ONU {#PON}/{#ONU} [{#SERIAL}]: Modelo'
+        type: SNMP_AGENT
+        snmp_oid: 1.3.6.1.4.1.11863.6.100.1.7.2.1.15.{#SNMPINDEX}
+        key: tplink.onu.model[{#SNMPINDEX}]
+        delay: 5m
+        history: 7d
+        value_type: CHAR
+        description: Equipment ID/modelo da ONU.
+      - uuid: 0ea93ac5774b4ebca12b276a9144d5cd
+        name: 'ONU {#PON}/{#ONU} [{#SERIAL}]: Estado online'
+        type: SNMP_AGENT
+        snmp_oid: 1.3.6.1.4.1.11863.6.100.1.7.2.1.11.{#SNMPINDEX}
+        key: tplink.onu.online[{#SNMPINDEX}]
+        delay: 5m
+        history: 7d
+        trends: 90d
+        description: 'Estado da ONU: 1 = online, 0 = offline.'
+        valuemap:
+          name: ONU online
+        trigger_prototypes:
+        - uuid: 133c6abd69724dfc99750a12304ed03a
+          expression: '{$ONU.OFFLINE.ALERT}=1 and max(/TP-Link DS-P7001-16 by SNMP/tplink.onu.online[{#SNMPINDEX}],6m)=0 and nodata(/TP-Link DS-P7001-16 by SNMP/tplink.onu.online[{#SNMPINDEX}],10m)=0'
+          name: 'ONU {#PON}/{#ONU} [{#SERIAL}] - {#DESCRIPTION}: offline'
+          opdata: 'Local: {#DESCRIPTION} | PON/ONU: {#PON}/{#ONU} | Serial: {#SERIAL} | Estado: {ITEM.LASTVALUE1}'
+          priority: HIGH
+          description: ONU {#DESCRIPTION} ficou offline.
+          tags:
+          - tag: component
+            value: onu
+      - uuid: e6001f994fca4dd587379be27d7c0b4b
+        name: 'ONU {#PON}/{#ONU} [{#SERIAL}]: Potência RX'
+        type: SNMP_AGENT
+        snmp_oid: 1.3.6.1.4.1.11863.6.100.1.7.2.1.25.{#SNMPINDEX}
+        key: tplink.onu.rx[{#SNMPINDEX}]
+        delay: 5m
+        history: 7d
+        value_type: FLOAT
+        trends: 90d
+        units: dBm
+        description: Potencia optica RX da ONU em dBm.
+        trigger_prototypes:
+        - uuid: 954a1abaf2614b7fb88fde83f846a15f
+          expression: last(/TP-Link DS-P7001-16 by SNMP/tplink.onu.rx[{#SNMPINDEX}])<{$ONU.RX.WARN} and last(/TP-Link DS-P7001-16 by SNMP/tplink.onu.rx[{#SNMPINDEX}])>={$ONU.RX.CRIT}
+          name: 'ONU {#PON}/{#ONU} [{#SERIAL}] - {#DESCRIPTION}: RX baixo'
+          opdata: 'Local: {#DESCRIPTION} | PON/ONU: {#PON}/{#ONU} | Serial: {#SERIAL} | RX: {ITEM.LASTVALUE1}'
+          priority: WARNING
+          description: Potencia RX abaixo do limite de aviso, mas ainda acima/igual ao limite critico. Limiares definidos por macros do template.
+          tags:
+          - tag: component
+            value: onu
+        - uuid: fac5820ef6e74041985f76ff67986cab
+          expression: last(/TP-Link DS-P7001-16 by SNMP/tplink.onu.rx[{#SNMPINDEX}])<{$ONU.RX.CRIT}
+          name: 'ONU {#PON}/{#ONU} [{#SERIAL}] - {#DESCRIPTION}: RX em nível crítico'
+          opdata: 'Local: {#DESCRIPTION} | PON/ONU: {#PON}/{#ONU} | Serial: {#SERIAL} | RX: {ITEM.LASTVALUE1}'
+          priority: HIGH
+          description: 'Potencia RX abaixo do limite critico. Verifique perda optica, conectores, splitters e margem do enlace.
+
+            ONU {#DESCRIPTION} com potência RX em nível crítico.
+
+            '
+          tags:
+          - tag: component
+            value: onu
+      - uuid: 737e58d14a474ebf83f2347e0ead93c5
+        name: 'ONU {#PON}/{#ONU} [{#SERIAL}]: Serial'
+        type: SNMP_AGENT
+        snmp_oid: 1.3.6.1.4.1.11863.6.100.1.7.2.1.6.{#SNMPINDEX}
+        key: tplink.onu.serial[{#SNMPINDEX}]
+        delay: 5m
+        history: 7d
+        value_type: CHAR
+        description: Número de série da ONU.
+      - uuid: 6d1fd0b8f2ab4e2bba8f9559662ad09b
+        name: 'ONU {#PON}/{#ONU} [{#SERIAL}]: Software/Firmware'
+        type: SNMP_AGENT
+        snmp_oid: 1.3.6.1.4.1.11863.6.100.1.7.2.1.30.{#SNMPINDEX}
+        key: tplink.onu.software[{#SNMPINDEX}]
+        delay: 5m
+        history: 7d
+        value_type: CHAR
+        description: Versao de software/firmware reportada pela ONU.
+      - uuid: 4bd4a7d39796450a9f4d6099e89438f3
+        name: 'ONU {#PON}/{#ONU} [{#SERIAL}]: Temperatura'
+        type: SNMP_AGENT
+        snmp_oid: 1.3.6.1.4.1.11863.6.100.1.7.2.1.29.{#SNMPINDEX}
+        key: tplink.onu.temperature[{#SNMPINDEX}]
+        delay: 5m
+        history: 7d
+        value_type: FLOAT
+        trends: 90d
+        units: °C
+        description: Temperatura reportada pela ONU em graus Celsius.
+        trigger_prototypes:
+        - uuid: 3a06276064ce44959a7ea2408853f7f3
+          expression: last(/TP-Link DS-P7001-16 by SNMP/tplink.onu.temperature[{#SNMPINDEX}])>{$ONU.TEMP.WARN} and last(/TP-Link DS-P7001-16 by SNMP/tplink.onu.temperature[{#SNMPINDEX}])<={$ONU.TEMP.CRIT}
+          name: 'ONU {#PON}/{#ONU} [{#SERIAL}] - {#DESCRIPTION}: temperatura alta'
+          opdata: 'Local: {#DESCRIPTION} | PON/ONU: {#PON}/{#ONU} | Serial: {#SERIAL} | Temperatura: {ITEM.LASTVALUE1}'
+          priority: WARNING
+          description: ONU {#DESCRIPTION} com temperatura acima do limite de aviso.
+          tags:
+          - tag: component
+            value: onu
+        - uuid: ed276dca1b9a4282a4ab9878a5ceabcf
+          expression: last(/TP-Link DS-P7001-16 by SNMP/tplink.onu.temperature[{#SNMPINDEX}])>{$ONU.TEMP.CRIT}
+          name: 'ONU {#PON}/{#ONU} [{#SERIAL}] - {#DESCRIPTION}: temperatura crítica'
+          opdata: 'Local: {#DESCRIPTION} | PON/ONU: {#PON}/{#ONU} | Serial: {#SERIAL} | Temperatura: {ITEM.LASTVALUE1}'
+          priority: AVERAGE
+          description: ONU {#DESCRIPTION} com temperatura em nível crítico.
+          tags:
+          - tag: component
+            value: onu
+      - uuid: de94bacf07f94464ade5784a66744c97
+        name: 'ONU {#PON}/{#ONU} [{#SERIAL}]: Potência TX'
+        type: SNMP_AGENT
+        snmp_oid: 1.3.6.1.4.1.11863.6.100.1.7.2.1.26.{#SNMPINDEX}
+        key: tplink.onu.tx[{#SNMPINDEX}]
+        delay: 5m
+        history: 7d
+        value_type: FLOAT
+        trends: 90d
+        units: dBm
+        description: Potencia optica TX da ONU em dBm.
+      - uuid: 3c462c4191a24eedbca3df4020c4c9f4
+        name: 'ONU {#PON}/{#ONU} [{#SERIAL}]: Tempo online'
+        type: SNMP_AGENT
+        snmp_oid: 1.3.6.1.4.1.11863.6.100.1.7.2.1.18.{#SNMPINDEX}
+        key: tplink.onu.uptime[{#SNMPINDEX}]
+        delay: 5m
+        history: 7d
+        trends: '0'
+        units: uptime
+        description: Valor retornado em segundos e exibido pelo Zabbix no formato uptime.
+      - uuid: 514b2a6d25834642b7bab78a9c0ce114
+        name: 'ONU {#PON}/{#ONU} [{#SERIAL}]: Fabricante'
+        type: SNMP_AGENT
+        snmp_oid: 1.3.6.1.4.1.11863.6.100.1.7.2.1.14.{#SNMPINDEX}
+        key: tplink.onu.vendor[{#SNMPINDEX}]
+        delay: 5m
+        history: 7d
+        value_type: CHAR
+        description: Vendor ID/fabricante da ONU.
+      - uuid: 9bb8742afdb842f9be5ba531c84f78eb
+        name: 'ONU {#PON}/{#ONU} [{#SERIAL}]: Tensão'
+        type: SNMP_AGENT
+        snmp_oid: 1.3.6.1.4.1.11863.6.100.1.7.2.1.28.{#SNMPINDEX}
+        key: tplink.onu.voltage[{#SNMPINDEX}]
+        delay: 5m
+        history: 7d
+        value_type: FLOAT
+        trends: 90d
+        units: V
+        description: O equipamento retorna mV; o template converte para V.
+        preprocessing:
+        - type: MULTIPLIER
+          parameters:
+          - '0.001'
+    - uuid: 7e8c88d9dfba4f73b3029ebbadadcf50
+      name: Descoberta das PONs
+      type: SNMP_AGENT
+      snmp_oid: discovery[{#PON},1.3.6.1.4.1.11863.6.100.1.1.2.1.3]
+      key: tplink.pon.discovery
+      delay: 1h
+      lifetime: 30d
+      enabled_lifetime_type: DISABLE_NEVER
+      description: Descobre as PONs da OLT. O SNMPINDEX segue slot.porta e não corresponde ao ifIndex.
+      item_prototypes:
+      - uuid: ea700810646f49cab5d81878394db99c
+        name: 'PON {#PON}: habilitação configurada'
+        type: SNMP_AGENT
+        snmp_oid: 1.3.6.1.4.1.11863.6.100.1.1.1.1.4.{#SNMPINDEX}
+        key: tplink.pon.admin[{#SNMPINDEX}]
+        delay: 2m
+        history: 7d
+        trends: 90d
+        description: 'tpOltPortConfigStatus: disable(0), enable(1). Nao tratado como ifOperStatus.'
+        valuemap:
+          name: Desabilitado/Habilitado
+      - uuid: 5e6d48efeec543e4a7d72550264b99ff
+        name: 'PON {#PON}: Corrente de bias (texto)'
+        type: SNMP_AGENT
+        snmp_oid: 1.3.6.1.4.1.11863.6.100.1.1.2.1.10.{#SNMPINDEX}
+        key: tplink.pon.bias[{#SNMPINDEX}]
+        delay: 2m
+        history: 7d
+        value_type: CHAR
+        description: Corrente de bias do transceptor da PON, como texto (a MIB retorna DisplayString).
+      - uuid: a7c4f90032834757bb19515d087c81d2
+        name: 'PON {#PON}: Banda máxima disponivel (valor bruto)'
+        type: SNMP_AGENT
+        snmp_oid: 1.3.6.1.4.1.11863.6.100.1.1.2.1.6.{#SNMPINDEX}
+        key: tplink.pon.bw.max[{#SNMPINDEX}]
+        delay: 2m
+        history: 7d
+        trends: 90d
+        description: Banda máxima da PON (valor bruto, a MIB não declara unidade).
+      - uuid: 598c2150e2ba41188794b0fd9a86a8f2
+        name: 'PON {#PON}: Banda restante (valor bruto)'
+        type: SNMP_AGENT
+        snmp_oid: 1.3.6.1.4.1.11863.6.100.1.1.2.1.8.{#SNMPINDEX}
+        key: tplink.pon.bw.remaining[{#SNMPINDEX}]
+        delay: 2m
+        history: 7d
+        trends: 90d
+        description: Banda restante da PON (valor bruto, a MIB não declara unidade).
+      - uuid: 97bd4b0c36aa46598f58d57f8bd493ec
+        name: 'PON {#PON}: Banda utilizada (valor bruto)'
+        type: SNMP_AGENT
+        snmp_oid: 1.3.6.1.4.1.11863.6.100.1.1.2.1.7.{#SNMPINDEX}
+        key: tplink.pon.bw.used[{#SNMPINDEX}]
+        delay: 2m
+        history: 7d
+        trends: 90d
+        description: Banda utilizada da PON (valor bruto, a MIB não declara unidade).
+      - uuid: 162adf8551fb4bd983f8c253a4017f28
+        name: 'PON {#PON}: ONUs online'
+        type: SNMP_AGENT
+        snmp_oid: 1.3.6.1.4.1.11863.6.100.1.1.2.1.5.{#SNMPINDEX}
+        key: tplink.pon.onu.online[{#SNMPINDEX}]
+        delay: 2m
+        history: 7d
+        trends: 90d
+        description: Quantidade de ONUs online nesta PON.
+      - uuid: c02c5c65ac424d348c2880c65143a3fa
+        name: 'PON {#PON}: Estado óptico'
+        type: SNMP_AGENT
+        snmp_oid: 1.3.6.1.4.1.11863.6.100.1.1.2.1.4.{#SNMPINDEX}
+        key: tplink.pon.optical.status[{#SNMPINDEX}]
+        delay: 2m
+        history: 7d
+        trends: 90d
+        description: 'Estado do módulo óptico da PON: 0 = desabilitado, 1 = habilitado.'
+        valuemap:
+          name: Desabilitado/Habilitado
+      - uuid: e9041baf2df7463e8ab6eeefd250b778
+        name: 'PON {#PON}: Potência recebida (texto)'
+        type: SNMP_AGENT
+        snmp_oid: 1.3.6.1.4.1.11863.6.100.1.1.2.1.11.{#SNMPINDEX}
+        key: tplink.pon.rx[{#SNMPINDEX}]
+        delay: 2m
+        history: 7d
+        value_type: CHAR
+        description: Potência óptica recebida pela PON, como texto (a MIB retorna DisplayString).
+      - uuid: c0635e608c7243c08a4025356aade65e
+        name: 'PON {#PON}: Tensão óptica (texto)'
+        type: SNMP_AGENT
+        snmp_oid: 1.3.6.1.4.1.11863.6.100.1.1.2.1.9.{#SNMPINDEX}
+        key: tplink.pon.voltage[{#SNMPINDEX}]
+        delay: 2m
+        history: 7d
+        value_type: CHAR
+        description: Tensão do transceptor da PON, como texto (a MIB retorna DisplayString).
+      trigger_prototypes:
+      - uuid: 6353a352a0034192a217f466060278e4
+        expression: max(/TP-Link DS-P7001-16 by SNMP/tplink.pon.optical.status[{#SNMPINDEX}],5m)=0 and last(/TP-Link DS-P7001-16 by SNMP/tplink.pon.admin[{#SNMPINDEX}])=1 and nodata(/TP-Link DS-P7001-16 by SNMP/tplink.pon.optical.status[{#SNMPINDEX}],5m)=0
+        name: 'PON {#PON}: óptica desabilitada com porta habilitada'
+        priority: AVERAGE
+    macros:
+    - macro: '{$ONU.OFFLINE.ALERT}'
+      value: '0'
+      description: Definir 1 para ativar alertas de ONU offline após revisar ONUs provisionadas e inativas.
+    - macro: '{$ONU.RX.CRIT}'
+      value: '-29'
+      description: Limite crítico de potência RX da ONU em dBm. Ajuste conforme o projeto óptico.
+    - macro: '{$ONU.RX.WARN}'
+      value: '-27'
+      description: Limite de aviso de potência RX da ONU em dBm. Ajuste conforme o projeto óptico.
+    - macro: '{$ONU.TEMP.CRIT}'
+      value: '85'
+      description: Limite crítico de temperatura da ONU em graus Celsius.
+    - macro: '{$ONU.TEMP.WARN}'
+      value: '75'
+      description: Limite de aviso de temperatura da ONU em graus Celsius.
+    valuemaps:
+    - uuid: 0d3fcc7d63ff4fabb960e050f7b36708
+      name: Desabilitado/Habilitado
+      mappings:
+      - value: '0'
+        newvalue: Desabilitado
+      - value: '1'
+        newvalue: Habilitado
+    - uuid: 8dd6069d46334e7bb7e21f6c70ef96a7
+      name: ONU online
+      mappings:
+      - value: '0'
+        newvalue: Offline
+      - value: '1'
+        newvalue: Online
+    tags:
+    - tag: fabricante
+      value: tp-link
+    - tag: tecnologia
+      value: gpon

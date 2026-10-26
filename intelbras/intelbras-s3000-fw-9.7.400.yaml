@@ -1,0 +1,122 @@
+zabbix_export:
+  version: '7.4'
+  template_groups:
+  - uuid: bf8a3a382f6d48fe9c02d41916f1a02e
+    name: Templates/Network devices
+  templates:
+  - uuid: 4276b121c0ff4bb5985a67f527e58c90
+    template: Template Intelbras S3000 MIB 9.7.400
+    name: Template Intelbras S3000 MIB 9.7.400
+    description: 'Complemento para switches Intelbras da linha S3000 com firmware 9.7.400 (ex.: S3054G-B): CPU, memória, temperatura ambiente e da CPU, fontes e ventilador via MIB Intelbras (1.3.6.1.4.1.26138.3.600).'
+    groups:
+    - name: Templates/Network devices
+    items:
+    - uuid: 3bc2f743ecbf49c5ac8377bf2e18f5ff
+      name: 'Intelbras: Uso de CPU'
+      type: SNMP_AGENT
+      snmp_oid: 1.3.6.1.4.1.26138.3.600.9.1.1.3.33.1
+      key: intelbras.cpu
+      units: '%'
+      triggers:
+      - uuid: 4f5cb7a4f499480e8fe7b937b7e0b1e3
+        expression: avg(/Template Intelbras S3000 MIB 9.7.400/intelbras.cpu,5m)>{$INTELBRAS.CPU.MAX}
+        name: 'Switch: CPU alta (> {$INTELBRAS.CPU.MAX}%)'
+        priority: WARNING
+    - uuid: 8eaf69ee1ba947fd8e25f3055fee721a
+      name: 'Intelbras: Ventilador'
+      type: SNMP_AGENT
+      snmp_oid: 1.3.6.1.4.1.26138.3.600.8.2.1.3.57.1
+      key: intelbras.fan
+      delay: 2m
+      valuemap:
+        name: Intelbras status
+      triggers:
+      - uuid: d0fae51fb875462284d6d1560191c943
+        expression: last(/Template Intelbras S3000 MIB 9.7.400/intelbras.fan)<>1
+        name: 'Switch: ventilador anormal'
+        priority: AVERAGE
+    - uuid: fadb6a41787d402c9ee89cc01aa299ed
+      name: 'Intelbras: Uso de memória'
+      type: SNMP_AGENT
+      snmp_oid: 1.3.6.1.4.1.26138.3.600.10.1.1.10.33
+      key: intelbras.mem
+      units: '%'
+      triggers:
+      - uuid: 19cd8c87765341809762baa46594d7c3
+        expression: avg(/Template Intelbras S3000 MIB 9.7.400/intelbras.mem,10m)>{$INTELBRAS.MEM.MAX}
+        name: 'Switch: memória alta (> {$INTELBRAS.MEM.MAX}%)'
+        priority: WARNING
+    - uuid: ab6d4bc9bc984a8184963369401f1a7b
+      name: 'Intelbras: Fonte 1'
+      type: SNMP_AGENT
+      snmp_oid: 1.3.6.1.4.1.26138.3.600.7.1.1.9.49
+      key: intelbras.psu[1]
+      delay: 2m
+      valuemap:
+        name: Intelbras status
+      triggers:
+      - uuid: d5eb7a5e80cc4b68950740b53378b29a
+        expression: last(/Template Intelbras S3000 MIB 9.7.400/intelbras.psu[1])<>1
+        name: 'Switch: Fonte 1 anormal'
+        priority: AVERAGE
+    - uuid: c8ed19911e6a494abc06dcf832df8532
+      name: 'Intelbras: Fonte 2'
+      type: SNMP_AGENT
+      snmp_oid: 1.3.6.1.4.1.26138.3.600.7.1.1.9.50
+      key: intelbras.psu[2]
+      delay: 2m
+      valuemap:
+        name: Intelbras status
+      triggers:
+      - uuid: ae4117a8eadd4ded965cb80c14932374
+        expression: last(/Template Intelbras S3000 MIB 9.7.400/intelbras.psu[2])<>1
+        name: 'Switch: Fonte 2 anormal'
+        priority: AVERAGE
+    - uuid: ffeefa3bfec14f2bb654963e05ca19ba
+      name: 'Intelbras: Temperatura ambiente'
+      type: SNMP_AGENT
+      snmp_oid: 1.3.6.1.4.1.26138.3.600.2.1.1.20.33
+      key: intelbras.temp.amb
+      units: °C
+      triggers:
+      - uuid: f28dbf601d954005b1e1c3e5ad47c95e
+        expression: avg(/Template Intelbras S3000 MIB 9.7.400/intelbras.temp.amb,5m)>{$INTELBRAS.TEMP.AMB.MAX}
+        name: 'Switch: temperatura ambiente alta (> {$INTELBRAS.TEMP.AMB.MAX}°C)'
+        priority: AVERAGE
+    - uuid: c9edec4d66624a8fb1a6bd6a30b2500e
+      name: 'Intelbras: Temperatura CPU'
+      type: SNMP_AGENT
+      snmp_oid: 1.3.6.1.4.1.26138.3.600.9.2.1.2.33
+      key: intelbras.temp.cpu
+      units: °C
+      triggers:
+      - uuid: 0cf6542ebc6a4eaab6f8c5827a065283
+        expression: avg(/Template Intelbras S3000 MIB 9.7.400/intelbras.temp.cpu,5m)>{$INTELBRAS.TEMP.CPU.MAX}
+        name: 'Switch: temperatura da CPU alta (> {$INTELBRAS.TEMP.CPU.MAX}°C)'
+        priority: AVERAGE
+    tags:
+    - tag: fabricante
+      value: intelbras
+    - tag: tecnologia
+      value: switch
+    macros:
+    - macro: '{$INTELBRAS.CPU.MAX}'
+      value: '80'
+      description: Uso de CPU máximo (%)
+    - macro: '{$INTELBRAS.MEM.MAX}'
+      value: '90'
+      description: Uso de memória máximo (%)
+    - macro: '{$INTELBRAS.TEMP.AMB.MAX}'
+      value: '50'
+      description: Temperatura ambiente máxima (°C)
+    - macro: '{$INTELBRAS.TEMP.CPU.MAX}'
+      value: '85'
+      description: Temperatura da CPU máxima (°C)
+    valuemaps:
+    - uuid: d2e3559921c145fca66061b39d514094
+      name: Intelbras status
+      mappings:
+      - value: '1'
+        newvalue: Normal
+      - value: '2'
+        newvalue: Anormal

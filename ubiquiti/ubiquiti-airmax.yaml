@@ -1,0 +1,427 @@
+zabbix_export:
+  version: '7.4'
+  template_groups:
+  - uuid: bf8a3a382f6d48fe9c02d41916f1a02e
+    name: Templates/Network devices
+  templates:
+  - uuid: 5dc9db97e35e420e92459fde22c687a6
+    template: Template Wireless Ubiquiti Base
+    name: Template Wireless Ubiquiti Base
+    description: 'Base comum para rádios Ubiquiti airMAX (airOS): disponibilidade por ICMP (ping, perda e latência), tráfego e status da porta eth0 e uptime. Use junto com o template de AP ou de RF (M5 / AC).'
+    groups:
+    - name: Templates/Network devices
+    items:
+    - uuid: 30edbb3eb6f440be9add6d1a19cfe651
+      name: ICMP ping (simple check)
+      type: SIMPLE
+      key: icmpping
+      delay: 30s
+      triggers:
+      - uuid: 2e6c326a61fb40bfad4274f0c0c2a2ed
+        expression: max(/Template Wireless Ubiquiti Base/icmpping,3m)=0
+        name: Host down
+        priority: HIGH
+        manual_close: 'YES'
+    - uuid: 9ccbfee398c64f399ac1bc149faddfba
+      name: ICMP loss
+      type: SIMPLE
+      key: icmppingloss
+      value_type: FLOAT
+      units: '%'
+      triggers:
+      - uuid: f25a75aa02704a7cb8699d9348387ba8
+        expression: min(/Template Wireless Ubiquiti Base/icmppingloss,5m)>{$ICMP.LOSS.MAX}
+        name: Perda de pacotes (> {$ICMP.LOSS.MAX}%)
+        priority: WARNING
+        manual_close: 'YES'
+        dependencies:
+        - name: Host down
+          expression: max(/Template Wireless Ubiquiti Base/icmpping,3m)=0
+    - uuid: 5233c4741acf4cb1b48d114e5d236edb
+      name: ICMP response time
+      type: SIMPLE
+      key: icmppingsec
+      value_type: FLOAT
+      units: s
+      triggers:
+      - uuid: dd13d9321c614e53b68983617225f5bc
+        expression: avg(/Template Wireless Ubiquiti Base/icmppingsec,5m)>{$ICMP.RESPONSE.MAX}
+        name: Latência alta (> {$ICMP.RESPONSE.MAX}s)
+        priority: WARNING
+        dependencies:
+        - name: Host down
+          expression: max(/Template Wireless Ubiquiti Base/icmpping,3m)=0
+    - uuid: 4e0fe3f43dd444fb838af4c228de2f73
+      name: 'Interface eth0: tráfego recebido'
+      type: SNMP_AGENT
+      snmp_oid: 1.3.6.1.2.1.2.2.1.10["index","1.3.6.1.2.1.2.2.1.2","eth0"]
+      key: net.if.in[eth0]
+      units: bps
+      preprocessing:
+      - type: CHANGE_PER_SECOND
+      - type: MULTIPLIER
+        parameters:
+        - '8'
+    - uuid: aebc5a976f8049e9bd31f9a188b4dbe2
+      name: 'Interface eth0: tráfego enviado'
+      type: SNMP_AGENT
+      snmp_oid: 1.3.6.1.2.1.2.2.1.16["index","1.3.6.1.2.1.2.2.1.2","eth0"]
+      key: net.if.out[eth0]
+      units: bps
+      preprocessing:
+      - type: CHANGE_PER_SECOND
+      - type: MULTIPLIER
+        parameters:
+        - '8'
+    - uuid: 5ac1b81cc17e477898fbaa6c54ccd65d
+      name: 'Interface eth0: status'
+      type: SNMP_AGENT
+      snmp_oid: 1.3.6.1.2.1.2.2.1.8["index","1.3.6.1.2.1.2.2.1.2","eth0"]
+      key: net.if.status[eth0]
+      triggers:
+      - uuid: 307fd4cd594b4a9b91bee62817eb551d
+        expression: min(/Template Wireless Ubiquiti Base/net.if.status[eth0],3m)>1
+        name: LAN desconectada
+        priority: HIGH
+        description: LAN desconectada no rádio
+        manual_close: 'YES'
+        dependencies:
+        - name: Host down
+          expression: max(/Template Wireless Ubiquiti Base/icmpping,3m)=0
+      valuemap:
+        name: IF-MIB::ifOperStatus
+    - uuid: d81a8212e6454a66a201a325b7a1cd60
+      name: Uptime (seconds)
+      type: SNMP_AGENT
+      snmp_oid: 1.3.6.1.2.1.1.3.0
+      key: sys.uptime
+      units: s
+      preprocessing:
+      - type: MULTIPLIER
+        parameters:
+        - '0.01'
+    valuemaps:
+    - uuid: 841c4481ac814426adbdbd046256ccdc
+      name: IF-MIB::ifOperStatus
+      mappings:
+      - value: '1'
+        newvalue: up
+      - value: '2'
+        newvalue: down
+      - value: '3'
+        newvalue: testing
+      - value: '5'
+        newvalue: dormant
+      - value: '7'
+        newvalue: lowerLayerDown
+    macros:
+    - macro: '{$ICMP.LOSS.MAX}'
+      value: '20'
+      description: Perda de pacotes máxima aceitável (%)
+    - macro: '{$ICMP.RESPONSE.MAX}'
+      value: '0.2'
+      description: Latência máxima aceitável (segundos)
+    tags:
+    - tag: fabricante
+      value: ubiquiti
+  - uuid: 03b1639e23534164accf777a8aa6bcb6
+    template: Template Ubiquiti AP
+    name: Template Ubiquiti AP
+    templates:
+    - name: Template Wireless Ubiquiti Base
+    groups:
+    - name: Templates/Network devices
+    items:
+    - uuid: 4be244c62b164b9490d6da599e40705d
+      name: Estações conectadas
+      type: SNMP_AGENT
+      snmp_oid: 1.3.6.1.4.1.41112.1.4.5.1.15.1
+      key: ubnt.sta.count
+    description: Rádio Ubiquiti em modo AP (Access Point). Inclui a base e conta as estações conectadas.
+  - uuid: 2ee42c7a67834ff4bc5533413ea5f6e3
+    template: Template Ubiquiti RF M5
+    name: Template Ubiquiti RF M5
+    groups:
+    - name: Templates/Network devices
+    items:
+    - uuid: 4f85db61fa0f46fca59af63d23f34d07
+      name: Firmware version
+      type: SNMP_AGENT
+      snmp_oid: get[1.2.840.10036.3.1.2.1.4.5]
+      key: system.hw.firmware
+      delay: 1h
+      value_type: CHAR
+      preprocessing:
+      - type: DISCARD_UNCHANGED_HEARTBEAT
+        parameters:
+        - 30s
+      tags:
+      - tag: component
+        value: system
+    - uuid: 746e6094cebb4e2084cb0cf77edd0232
+      name: Hardware model name
+      type: SNMP_AGENT
+      snmp_oid: get[1.2.840.10036.3.1.2.1.3.5]
+      key: system.hw.model
+      delay: 1h
+      value_type: CHAR
+      description: 'MIB: IEEE802dot11-MIB
+
+        A printable string used to identify the manufacturer''s product name of the resource. Maximum string length is 128 octets.
+
+        '
+      inventory_link: MODEL
+      preprocessing:
+      - type: DISCARD_UNCHANGED_HEARTBEAT
+        parameters:
+        - 30s
+      tags:
+      - tag: component
+        value: system
+    - uuid: 9e1331a7de874f4686f27b6d5036f0fd
+      name: System name
+      type: SNMP_AGENT
+      snmp_oid: get[1.3.6.1.2.1.1.5.0]
+      key: system.name
+      delay: 1h
+      value_type: CHAR
+      description: 'MIB: SNMPv2-MIB
+
+        An administratively-assigned name for this managed node.By convention, this is the node''s fully-qualified domain name. If the name is unknown, the value is the zero-length string.
+
+        '
+      inventory_link: NAME
+      preprocessing:
+      - type: DISCARD_UNCHANGED_HEARTBEAT
+        parameters:
+        - 30s
+      tags:
+      - tag: component
+        value: system
+    - uuid: 4dfcda5b36994c6cbf26fcc200033785
+      name: Wireless CCQ
+      type: SNMP_AGENT
+      snmp_oid: 1.3.6.1.4.1.41112.1.4.5.1.7.1
+      key: ubnt.ccq
+      units: '%'
+      triggers:
+      - uuid: f5b1f50cdbdd4841ad9cd10d305be001
+        expression: min(/Template Ubiquiti RF M5/ubnt.ccq,5m)<{$CCQ.MIN}
+        name: 'RF: CCQ baixo (<{$CCQ.MIN}%)'
+        priority: WARNING
+    - uuid: e0ed8abb3ba1404a9d52af16a83b080b
+      name: Wireless noise floor
+      type: SNMP_AGENT
+      snmp_oid: 1.3.6.1.4.1.41112.1.4.5.1.8.1
+      key: ubnt.noise
+      value_type: FLOAT
+      units: dBm
+      triggers:
+      - uuid: fc85edf755cf4ab5af641559dce38cd8
+        expression: avg(/Template Ubiquiti RF M5/ubnt.noise,5m)>{$NOISE.MAX}
+        name: 'RF: Ruído alto (>{$NOISE.MAX} dBm)'
+        priority: WARNING
+    - uuid: 7993386ed1cd49d589c67b6cba6faa17
+      name: Wireless RX Rate
+      type: SNMP_AGENT
+      snmp_oid: 1.3.6.1.4.1.41112.1.4.5.1.10.1
+      key: ubnt.rxrate
+      units: bps
+    - uuid: d523ba5739f04f41aec509f532820558
+      name: Wireless signal (RSSI)
+      type: SNMP_AGENT
+      snmp_oid: 1.3.6.1.4.1.41112.1.4.5.1.5.1
+      key: ubnt.signal
+      value_type: FLOAT
+      triggers:
+      - uuid: 545015c30e92463bb5e52b810a482a23
+        expression: avg(/Template Ubiquiti RF M5/ubnt.signal,5m)<{$RSSI.WARN}
+        name: 'RF: RSSI baixo (<{$RSSI.WARN} dBm)'
+        priority: WARNING
+        dependencies:
+        - name: 'RF: RSSI crítico (<{$RSSI.MIN} dBm)'
+          expression: avg(/Template Ubiquiti RF M5/ubnt.signal,5m)<{$RSSI.MIN}
+      - uuid: f49999fa59d74a42ae2f0dee04295c51
+        expression: avg(/Template Ubiquiti RF M5/ubnt.signal,5m)<{$RSSI.MIN}
+        name: 'RF: RSSI crítico (<{$RSSI.MIN} dBm)'
+        priority: HIGH
+      units: dBm
+    - uuid: 8b2c8020016748468c641568b10fd555
+      name: SNR (calculado)
+      type: CALCULATED
+      key: ubnt.snr
+      delay: 30s
+      value_type: FLOAT
+      units: dB
+      params: last(//ubnt.signal)-last(//ubnt.noise)
+    - uuid: 8f20225b43f94cd6a976070c90422680
+      name: Wireless tx Rate
+      type: SNMP_AGENT
+      snmp_oid: 1.3.6.1.4.1.41112.1.4.5.1.9.1
+      key: ubnt.txrate
+      units: bps
+    macros:
+    - macro: '{$RSSI.WARN}'
+      value: '-70'
+      description: Sinal de atenção (dBm)
+    - macro: '{$RSSI.MIN}'
+      value: '-75'
+      description: Sinal crítico (dBm)
+    - macro: '{$NOISE.MAX}'
+      value: '-85'
+      description: Ruído máximo aceitável (dBm)
+    - macro: '{$SNR.MIN}'
+      value: '20'
+      description: SNR mínimo aceitável (dB)
+    - macro: '{$CCQ.MIN}'
+      value: '75'
+      description: CCQ mínimo aceitável (%)
+    - macro: '{$AMQ.MIN}'
+      value: '50'
+      description: airMAX Quality mínima (%) — para os itens airMAX, desativados por padrão
+    - macro: '{$AMC.MAX.WARN}'
+      value: '85'
+      description: 'airMAX Capacity: atenção (%)'
+    - macro: '{$AMC.MAX.CRIT}'
+      value: '95'
+      description: 'airMAX Capacity: crítico (%)'
+    description: 'Qualidade do enlace de rádios Ubiquiti airMAX M (M5): sinal (RSSI), ruído, SNR calculado, taxas de RX/TX, modelo e firmware. Limites ajustáveis por macros.'
+    tags:
+    - tag: fabricante
+      value: ubiquiti
+  - uuid: 6400cc62fb274758b1dee3b2cf3f145f
+    template: Template Ubiquiti RF AC
+    name: Template Ubiquiti RF AC
+    groups:
+    - name: Templates/Network devices
+    items:
+    - uuid: adb7767ded3c4c7c877a5f662493df28
+      name: AirMax Capacity
+      type: SNMP_AGENT
+      snmp_oid: 1.3.6.1.4.1.41112.1.4.6.1.4.1
+      key: rf.airmax.capacity
+      status: DISABLED
+      units: '%'
+    - uuid: 69304b2c38354f9794200e38a2818640
+      name: AirMax Quality
+      type: SNMP_AGENT
+      snmp_oid: 1.3.6.1.4.1.41112.1.4.6.1.3.1
+      key: rf.airmax.quality
+      status: DISABLED
+      units: '%'
+    - uuid: 82e460c90ef740fd855f092c890d0858
+      name: Firmware do rádio
+      type: SNMP_AGENT
+      snmp_oid: walk[1.2.840.10036.3.1.2.1.4]
+      key: system.hw.firmware
+      delay: 1h
+      value_type: CHAR
+      preprocessing:
+      - type: REGEX
+        parameters:
+        - 'STRING: "([^"]+)"'
+        - \1
+    - uuid: 7dad6567227a4bca8545779ac2e10716
+      name: Modelo do rádio
+      type: SNMP_AGENT
+      snmp_oid: walk[1.2.840.10036.3.1.2.1.3]
+      key: system.hw.model
+      delay: 1h
+      value_type: CHAR
+      preprocessing:
+      - type: REGEX
+        parameters:
+        - 'STRING: "([^"]+)"'
+        - \1
+    - uuid: 266e9c7e7f574046a434aa7d7c8a8d83
+      name: Wireless noise floor
+      type: SNMP_AGENT
+      snmp_oid: 1.3.6.1.4.1.41112.1.4.5.1.8.1
+      key: ubnt.noise
+      value_type: FLOAT
+      units: dBm
+      triggers:
+      - uuid: edb5e2345de74eef868bf4bf142c5556
+        expression: avg(/Template Ubiquiti RF AC/ubnt.noise,5m)>{$NOISE.MAX}
+        name: 'RF: Ruído alto (>{$NOISE.MAX} dBm)'
+        priority: WARNING
+    - uuid: 672432f0bc4c4e09b06b2f361a449ec4
+      name: Wireless RX Rate
+      type: SNMP_AGENT
+      snmp_oid: 1.3.6.1.4.1.41112.1.4.5.1.10.1
+      key: ubnt.rxrate
+      units: bps
+    - uuid: 9733203fb5494f8981ff083edfdab29f
+      name: Wireless signal (RSSI)
+      type: SNMP_AGENT
+      snmp_oid: 1.3.6.1.4.1.41112.1.4.5.1.5.1
+      key: ubnt.signal
+      value_type: FLOAT
+      triggers:
+      - uuid: 538d344442e7453b8a4728dab3dfda1e
+        expression: avg(/Template Ubiquiti RF AC/ubnt.signal,5m)<{$RSSI.WARN}
+        name: 'RF: RSSI baixo (<{$RSSI.WARN} dBm)'
+        priority: WARNING
+        dependencies:
+        - name: 'RF: RSSI crítico (<{$RSSI.MIN} dBm)'
+          expression: avg(/Template Ubiquiti RF AC/ubnt.signal,5m)<{$RSSI.MIN}
+      - uuid: 9f40697a1b834460b49a598e0baf5f94
+        expression: avg(/Template Ubiquiti RF AC/ubnt.signal,5m)<{$RSSI.MIN}
+        name: 'RF: RSSI crítico (<{$RSSI.MIN} dBm)'
+        priority: HIGH
+      units: dBm
+    - uuid: 1e290768e993492f91828394e93518f9
+      name: SNR (calculado)
+      type: CALCULATED
+      key: ubnt.snr
+      delay: 30s
+      value_type: FLOAT
+      units: dB
+      params: last(//ubnt.signal)-last(//ubnt.noise)
+    - uuid: 7b0218250d2c45e3be3234118902809f
+      name: Wireless tx Rate
+      type: SNMP_AGENT
+      snmp_oid: 1.3.6.1.4.1.41112.1.4.5.1.9.1
+      key: ubnt.txrate
+      units: bps
+    macros:
+    - macro: '{$RSSI.WARN}'
+      value: '-67'
+      description: Sinal de atenção (dBm)
+    - macro: '{$RSSI.MIN}'
+      value: '-75'
+      description: Sinal crítico (dBm)
+    - macro: '{$NOISE.MAX}'
+      value: '-85'
+      description: Ruído máximo aceitável (dBm)
+    - macro: '{$SNR.MIN}'
+      value: '20'
+      description: SNR mínimo aceitável (dB)
+    - macro: '{$AMQ.MIN}'
+      value: '50'
+      description: airMAX Quality mínima (%) — para os itens airMAX, desativados por padrão
+    - macro: '{$AMC.MAX.WARN}'
+      value: '85'
+      description: 'airMAX Capacity: atenção (%)'
+    - macro: '{$AMC.MAX.CRIT}'
+      value: '95'
+      description: 'airMAX Capacity: crítico (%)'
+    description: 'Qualidade do enlace de rádios Ubiquiti airMAX AC: sinal (RSSI), ruído, SNR calculado, taxas de RX/TX, modelo e firmware. Limites ajustáveis por macros.'
+    tags:
+    - tag: fabricante
+      value: ubiquiti
+  triggers:
+  - uuid: c36461798a3548d59f2934f44080122f
+    expression: 'avg(/Template Ubiquiti RF M5/ubnt.snr,5m)<{$SNR.MIN}
+
+      and avg(/Template Ubiquiti RF M5/ubnt.signal,5m)>={$RSSI.WARN}'
+    name: 'RF: qualidade baixa (SNR < {$SNR.MIN} dB com sinal bom)'
+    priority: WARNING
+    description: Sinal forte mas SNR baixo costuma indicar interferência no canal.
+  - uuid: 47e8d40adc694cf7a02218ff7a6811ee
+    expression: 'avg(/Template Ubiquiti RF AC/ubnt.snr,5m)<{$SNR.MIN}
+
+      and avg(/Template Ubiquiti RF AC/ubnt.signal,5m)>={$RSSI.WARN}'
+    name: 'RF: qualidade baixa (SNR < {$SNR.MIN} dB com sinal bom)'
+    priority: WARNING
+    description: Sinal forte mas SNR baixo costuma indicar interferência no canal.
